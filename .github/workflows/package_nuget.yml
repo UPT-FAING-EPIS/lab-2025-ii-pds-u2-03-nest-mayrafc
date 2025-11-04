@@ -7,7 +7,7 @@ on:
 env:
   NODE_VERSION: '20'
   SONAR_PROJECT_KEY: proyectou_lab3nest
-  SONAR_ORG_KEY: lab3nest
+  SONAR_ORG_KEY: proyectou
 
 jobs:
   build-and-publish:
