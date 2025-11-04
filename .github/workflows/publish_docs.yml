@@ -1,0 +1,158 @@
+name: Generar y publicar Documentación
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-publish-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Obtener el repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+
+      - name: Generar documentación del módulo Payment
+        working-directory: payment
+        run: |
+          npm ci || npm install
+          npx @compodoc/compodoc -p tsconfig.json -d documentation
+
+      - name: Generar documentación del módulo ATM
+        working-directory: atm
+        run: |
+          npm ci || npm install
+          npx @compodoc/compodoc -p tsconfig.json -d documentation
+
+      - name: Unificar documentación en la carpeta raíz
+        run: |
+          mkdir -p documentation
+          
+          if [ -d "payment/documentation" ]; then
+            mv payment/documentation documentation/payment
+          fi
+          
+          if [ -d "atm/documentation" ]; then
+            mv atm/documentation documentation/atm
+          fi
+
+      - name: Crear página de índice de documentación
+        run: |
+          cat > documentation/index.html << 'HTML'
+          <!DOCTYPE html>
+          <html lang="es">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Documentación del Proyecto</title>
+              <style>
+                  body {
+                      margin: 0;
+                      padding: 0;
+                      font-family: 'Poppins', Arial, sans-serif;
+                      background: linear-gradient(120deg, #1cb5e0 0%, #000851 100%);
+                      color: #222;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      min-height: 100vh;
+                  }
+                  .container {
+                      background: #ffffff;
+                      border-radius: 18px;
+                      padding: 50px;
+                      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                      max-width: 850px;
+                      width: 90%;
+                      text-align: center;
+                      animation: fadeIn 1s ease;
+                  }
+                  @keyframes fadeIn {
+                      from { opacity: 0; transform: translateY(20px); }
+                      to { opacity: 1; transform: translateY(0); }
+                  }
+                  h1 {
+                      color: #1e3a8a;
+                      font-size: 2.4em;
+                      margin-bottom: 20px;
+                  }
+                  p.subtitle {
+                      color: #555;
+                      font-size: 1.1em;
+                      margin-bottom: 40px;
+                  }
+                  .cards {
+                      display: grid;
+                      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                      gap: 25px;
+                  }
+                  .card {
+                      background: #f9fafb;
+                      border-radius: 12px;
+                      padding: 25px;
+                      border: 2px solid transparent;
+                      transition: all 0.3s ease;
+                      text-decoration: none;
+                      color: #111;
+                  }
+                  .card:hover {
+                      border-color: #2563eb;
+                      box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+                      transform: translateY(-5px);
+                  }
+                  .card h2 {
+                      margin: 0 0 10px 0;
+                      font-size: 1.5em;
+                      color: #1e40af;
+                  }
+                  .card p {
+                      margin: 0;
+                      color: #555;
+                      line-height: 1.5;
+                  }
+                  footer {
+                      margin-top: 40px;
+                      font-size: 0.9em;
+                      color: #666;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>📘 Documentación del Proyecto</h1>
+                  <p class="subtitle">Explora la documentación técnica de los módulos desarrollados con NestJS</p>
+                  <div class="cards">
+                      <a href="./payment/index.html" class="card">
+                          <h2>💳 Módulo Payment</h2>
+                          <p>Guía técnica del sistema de pagos, componentes, y estructura de servicios.</p>
+                      </a>
+                      <a href="./atm/index.html" class="card">
+                          <h2>🏧 Módulo ATM</h2>
+                          <p>Detalles de la arquitectura del módulo ATM y documentación de sus endpoints.</p>
+                      </a>
+                  </div>
+                  <footer>© 2025 - Generado automáticamente con GitHub Actions y Compodoc</footer>
+              </div>
+          </body>
+          </html>
+          HTML
+
+      - name: Verificar estructura generada
+        run: |
+          echo "Estructura final de documentation:"
+          ls -la documentation/
+          echo "---"
+          ls -la documentation/payment/ 2>/dev/null && echo "✅ payment docs encontrados"
+          ls -la documentation/atm/ 2>/dev/null && echo "✅ atm docs encontrados"
+
+      - name: Publicar documentación en GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./documentation
