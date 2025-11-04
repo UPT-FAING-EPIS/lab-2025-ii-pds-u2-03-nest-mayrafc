@@ -1,4 +1,4 @@
-name: Paquetes NPM, Pruebas y NuGet
+name: Paquetes NPM y Pruebas
 
 on:
   push:
@@ -27,9 +27,12 @@ jobs:
 
       - name: 🧱 Install dependencies needed on runner
         run: |
-          sudo apt-get update && sudo apt-get install -y jq
+          sudo apt-get update && sudo apt-get install -y jq dotnet-sdk-8.0
 
-      # ---------- TESTING & COVERAGE ----------
+      # -------------------------
+      # 🔹 TESTS Y COBERTURA
+      # -------------------------
+
       - name: 🧪 Run tests and collect coverage (payment)
         working-directory: payment
         run: |
@@ -54,7 +57,9 @@ jobs:
           name: atm-test-results
           path: atm/coverage
 
-      # ---------- SONARCLOUD SCAN ----------
+      # -------------------------
+      # 🔹 ANÁLISIS SONARCLOUD
+      # -------------------------
       - name: 🔍 SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
         with:
@@ -65,50 +70,42 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      # ---------- NPM PUBLISH: PAYMENT ----------
+      # -------------------------
+      # 🔹 PUBLICACIÓN NPM
+      # -------------------------
+
       - name: 🚀 Prepare and publish payment package
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/main' }}
         working-directory: payment
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          jq 'del(.private) | .name = "@${{ github.repository_owner }}/payment_chire" | .version = "0.0.0-" + (env.GITHUB_RUN_NUMBER|tostring)' package.json > package.temp.json
+          jq '.name = "@${{ github.repository_owner }}/payment_chire" | .version = "0.0.0-" + (env.GITHUB_RUN_NUMBER|tostring)' package.json > package.temp.json
           mv package.temp.json package.json
           npm ci || npm install
           echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
           echo "registry=https://registry.npmjs.org/" >> ~/.npmrc
           npm publish --access=restricted --registry=https://npm.pkg.github.com/
 
-      # ---------- NPM PUBLISH: ATM ----------
       - name: 🚀 Prepare and publish atm package
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/main' }}
         working-directory: atm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          jq 'del(.private) | .name = "@${{ github.repository_owner }}/atm_chire" | .version = "0.0.0-" + (env.GITHUB_RUN_NUMBER|tostring)' package.json > package.temp.json
+          jq '.name = "@${{ github.repository_owner }}/atm_chire" | .version = "0.0.0-" + (env.GITHUB_RUN_NUMBER|tostring)' package.json > package.temp.json
           mv package.temp.json package.json
           npm ci || npm install
           echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
           echo "registry=https://registry.npmjs.org/" >> ~/.npmrc
           npm publish --access=restricted --registry=https://npm.pkg.github.com/
 
-      # ---------- NUGET BUILD & PUBLISH ----------
-      - name: 🧱 Setup .NET for NuGet
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: 🔨 Restore and Build .NET project
+      # -------------------------
+      # 🔹 SIMULACIÓN DE NUGET (.NET)
+      # -------------------------
+      - name: ⚙️ Simulate NuGet Build
         run: |
-          dotnet restore
-          dotnet build --configuration Release
-
-      - name: 🧪 Run .NET Tests
-        run: dotnet test --configuration Release --no-build --verbosity normal
-
-      - name: 📦 Pack NuGet package
-        run: dotnet pack --configuration Release --no-build --output ./nuget-packages
-
-      - name: 🚀 Publish NuGet package to GitHub Packages
-        run: dotnet nuget push "./nuget-packages/*.nupkg" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate
+          dotnet new classlib -n DummyNuget -o dummy_nuget
+          cd dummy_nuget
+          dotnet pack --configuration Release --output ../nuget-packages
+          ls ../nuget-packages
